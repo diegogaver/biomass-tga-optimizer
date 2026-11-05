@@ -1,43 +1,45 @@
+## Citation
+
+If you use this software in your research, please cite our paper: > **Racero-Galaraga, D., & Cressoni De Conti, A.** (2026). *Development and validation of software for the determination of lignocellulosic biomass components via TGA, based on a multistep kinetic model*. Biochemical Engineering Journal (Under Review).
 # Biomass TGA Optimizer
 
-Herramienta en Python para estimar la composición inicial de biomasa (celulosa,
-hemicelulosa, ligninas, extractivos, humedad y ceniza) a partir de curvas
-experimentales de **TGA/DTG** y un mecanismo cinético de fase sólida.
+A Python tool to estimate the initial composition of biomass (cellulose, hemicellulose, lignins, extractives, moisture, and ash) from experimental **TGA/DTG** curves and a solid-phase kinetic mechanism.
 
-El proyecto combina:
+The project combines:
 
-- Un **parser** que convierte la estequiometría molar de un mecanismo
-  OpenSMOKE/PoliMi en rendimientos másicos.
-- Un **simulador ODE** rígido (`BDF` con Jacobiano analítico).
-- Un **optimizador estocástico** basado en *Differential Evolution*.
+- A **parser** that converts the molar stoichiometry of an OpenSMOKE/PoliMi mechanism into mass yields.
+- A stiff **ODE simulator** (`BDF` with an analytical Jacobian).
+- A **stochastic optimizer** based on *Differential Evolution*.
 
-## Estructura
+## Structure
 
-```
+```text
 biomass-tga-optimizer/
 │
 ├── data/
-│   ├── experimental/         # Curvas TGA/DTG de prueba (pine, oak, corn_stover)
-│   └── kinetics/             # Mecanismo cinético y JSON preprocesado
+│   ├── experimental/         # Test TGA/DTG curves (pine, oak, corn_stover)
+│   └── kinetics/             # Kinetic mechanism and preprocessed JSON
 │
 ├── src/
 │   ├── __init__.py
-│   ├── parser.py             # Estequiometría molar -> masa
-│   ├── simulator.py          # Solver ODE (BDF + Jacobiano analítico)
+│   ├── parser.py             # Molar stoichiometry -> mass conversion
+│   ├── simulator.py          # ODE solver (BDF + analytical Jacobian)
 │   └── optimizer.py          # Differential Evolution
 │
 ├── examples/
-│   └── run_optimization.py   # Script de ejemplo listo para ejecutar
+│   └── run_optimization.py   # Ready-to-run example script
 │
 ├── .gitignore
 ├── LICENSE
 ├── README.md
 └── requirements.txt
+
+
 ```
 
-## Instalación
+#### Installation
 
-Se recomienda usar un entorno virtual:
+Using a virtual environment is recommended:
 
 ```bash
 python3 -m venv venv
@@ -45,7 +47,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Uso rápido
+## Quick Start
 
 ```bash
 # Softwood (pino)
@@ -58,29 +60,28 @@ python examples/run_optimization.py data/experimental/oak.csv --tipo hardwood
 python examples/run_optimization.py data/experimental/corn_stover.csv --tipo grass --top 3
 ```
 
-Los resultados se guardan por defecto en:
+Results are saved by default to:
 
-- `results/ajuste_tga_dtg.png` — gráfica TGA/DTG experimental vs. simulada.
-- `results/resultado.json` — composición óptima y error normalizado.
+- `results/ajuste_tga_dtg.png` — experimental vs. simulated TGA/DTG plot.
+    
+- `results/resultado.json` — optimal composition and normalized error.
 
-### Opciones principales
+### Main Options
 
-| Opción | Descripción |
-| --- | --- |
-| `--tipo {softwood,hardwood,grass}` | Selecciona la hemicelulosa de referencia. |
-| `--top N` | Busca `N` soluciones distintas (niching). |
-| `--ash F` | Fija la fracción de ceniza (ej. `0.05`). |
-| `--bounds archivo.json` | Límites físicos personalizados. |
-| `--maxiter`, `--popsize`, `--seed` | Control del optimizador. |
-| `--output`, `--json` | Rutas de salida. |
+|**Option**|**Description**|
+|---|---|
+|`--tipo {softwood,hardwood,grass}`|Selects the reference hemicellulose.|
+|`--top N`|Searches for `N` distinct solutions (niching).|
+|`--ash F`|Fixes the ash fraction (e.g., `0.05`).|
+|`--bounds file.json`|Custom physical boundaries.|
+|`--maxiter`, `--popsize`, `--seed`|Optimizer control settings.|
+|`--output`, `--json`|Output file paths.|
 
-## Formato de los datos experimentales
+## Experimental Data Format
 
-El CSV debe contener, como mínimo, una columna de temperatura y una de masa.
-Las columnas se detectan automáticamente (`temp`/`Temperatura`, `masa`/`mass`/
-`TG`) y se admite una columna de tiempo para inferir la tasa de calentamiento.
+The CSV must contain at least a temperature column and a mass column. Columns are automatically detected (`temp`/`Temperatura`, `masa`/`mass`/`TG`), and a time column is supported to infer the heating rate.
 
-Ejemplo:
+Example:
 
 ```csv
 tiempo,Temp_C,Masa_Restante_TG
@@ -89,12 +90,11 @@ tiempo,Temp_C,Masa_Restante_TG
 ...
 ```
 
-Si la masa está en porcentaje (0–100) se normaliza automáticamente a fracción.
+If the mass is given in percentage (0–100), it is automatically normalized to a fraction.
 
-## Regenerar el mecanismo cinético
+## Regenerating the Kinetic Mechanism
 
-El simulador usa `data/kinetics/cineticas_solidas.json`. Para regenerarlo desde
-los archivos originales de OpenSMOKE:
+The simulator uses `data/kinetics/cineticas_solidas.json`. To regenerate it from original OpenSMOKE files:
 
 ```bash
 python -m src.parser \
@@ -103,7 +103,7 @@ python -m src.parser \
   --json data/kinetics/cineticas_solidas.json
 ```
 
-## Uso como librería
+## Usage as a Library
 
 ```python
 from src.optimizer import optimize_tga, plot_fit
@@ -119,16 +119,21 @@ t, mass = detailed_biomass_simulator(
 )
 ```
 
-## Cómo funciona el ajuste
+## How Fitting Works
 
-1. Se carga la curva experimental y se calcula su DTG suavizada.
-2. Para cada composición candidata se integra el mecanismo cinético.
-3. Se interpola la masa simulada sobre la temperatura experimental.
-4. El error combina el MSE normalizado de TGA y DTG al 50 % cada uno.
-5. Se aplican restricciones físicas (suma de fracciones, contenido de lignina,
-   ceniza máxima) mediante penalizaciones.
-6. Differential Evolution minimiza el error de forma global.
+1. The experimental curve is loaded, and its smoothed DTG is calculated.
+    
+2. For each candidate composition, the kinetic mechanism is integrated.
+    
+3. The simulated mass is interpolated over the experimental temperature.
+    
+4. The error combines the normalized MSE of TGA and DTG at 50% each.
+    
+5. Physical constraints (sum of fractions, lignin content, maximum ash) are applied via penalties.
+    
+6. Differential Evolution globally minimizes the error.
+    
 
-## Licencia
+## License
 
-Distribuido bajo la licencia MIT. Ver [LICENSE](LICENSE).
+Distributed under the MIT License. See [LICENSE](https://www.google.com/search?q=LICENSE) for details.
